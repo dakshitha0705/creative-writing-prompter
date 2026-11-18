@@ -45,7 +45,6 @@ def test_milestone_2():
 
 
 # Milestone 3: Add add-k smoothing to handle unseen n-grams.
-@pytest.mark.skip(reason="remove this line when you start milestone 3")
 def test_milestone_3():
     m = core.NgramModel(TINY, k=0.5)
     for ctx in [("opened", "the"), ("the",), ()]:

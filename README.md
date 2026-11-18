@@ -18,7 +18,7 @@ Tick these off as you go, and commit after each one.
       Hint: Use text preprocessing and tokenization techniques.
 - [x] **2. Implement n-gram counting and maximum-likelihood probabilities.**  
       Hint: Apply n-gram frequency counting and maximum-likelihood probability calculation.
-- [ ] **3. Add add-k smoothing to handle unseen n-grams.**  
+- [x] **3. Add add-k smoothing to handle unseen n-grams.**  
       Hint: Implement add-k smoothing for robust probability estimates.
 - [ ] **4. Develop a function to generate text by sampling from the model.**  
       Hint: Develop a function for random sampling based on n-gram probabilities to generate text.

@@ -4,6 +4,7 @@ Builds on the day-2 drill (app/ngram_lm.py): its `to_sentences`, `to_tokens` and
 sentence splitting, tokenizing and n-gram counting; this file adds corpus prep, MLE, add-k + backoff,
 temperature sampling and the pieces the CLI needs.
 """
+import math
 import os
 import random
 import re
@@ -124,11 +125,73 @@ class NgramModel:
             return []
         return [(w, cnt / self.totals[order][ctx]) for w, cnt in c.most_common() if w != EOS][:n]
 
+    # -- Milestone 3 methods (add-k + backoff); see tune_k below.
+    def backoff_context(self, context: tuple) -> tuple:
+        """Drop the oldest word until the context was seen in training (the empty context always is)."""
+        ctx = tuple(context)
+        while ctx and ctx not in self.totals[len(ctx) + 1]:
+            ctx = ctx[1:]
+        return ctx
+
+    def prob(self, word: str, context: tuple, k: float | None = None) -> float:
+        """Add-k: (count(ctx, w) + k) / (count(ctx) + k|V|), at the longest seen context; OOV -> <unk>."""
+        k = self.k if k is None else k
+        word = word if word in self.vocab else UNK
+        ctx = self.backoff_context(context)
+        n = len(ctx) + 1
+        return (self.counts[n][ctx][word] + k) / (self.totals[n][ctx] + k * len(self.vocab))
+
+    def _scored(self, sents: list[list[str]], k: float):
+        for s in sents:
+            toks = [BOS] * (self.order - 1) + list(s) + [EOS]
+            for i in range(self.order - 1, len(toks)):
+                ctx = tuple(toks[i - self.order + 1:i])
+                yield self.prob(toks[i], ctx, k) if k > 0 else self.mle(toks[i], ctx)
+
+    def perplexity(self, sents: list[list[str]], k: float | None = None) -> float:
+        """exp(-mean log P) over every word and </s>. k=0 is pure MLE (no backoff): inf if any P is 0."""
+        k = self.k if k is None else k
+        log_sum, n = 0.0, 0
+        for p in self._scored(sents, k):
+            if p == 0:
+                return math.inf
+            log_sum, n = log_sum + math.log(p), n + 1
+        return math.exp(-log_sum / n)
+
+    def zero_prob_rate(self, sents: list[list[str]]) -> float:
+        """Share of held-out tokens that MLE gives probability 0 (why MLE perplexity is infinite)."""
+        ps = list(self._scored(sents, 0))
+        return sum(p == 0 for p in ps) / len(ps)
+
+    def suggest(self, text: str, n: int = 5) -> list[tuple[str, float]]:
+        """Top-n next words: best from the longest seen context, topped up from shorter ones (backoff).
+        Probabilities are the smoothed P(word | full context)."""
+        full = context_of(to_tokens(text), self.order)
+        out: dict[str, float] = {}
+        ctx = self.backoff_context(full)
+        while len(out) < n:
+            for w, _ in self.counts[len(ctx) + 1][ctx].most_common():
+                if w not in (EOS, UNK) and w not in out:
+                    out[w] = self.prob(w, full)
+                    if len(out) == n:
+                        break
+            if not ctx:
+                break
+            ctx = self.backoff_context(ctx[1:])
+        return list(out.items())
+
 
 # --- Milestone 3: Add add-k smoothing to handle unseen n-grams.
 # Hint: Implement add-k smoothing for robust probability estimates.
-def milestone_3():  # TODO(milestone 3)
-    raise NotImplementedError("TODO(milestone 3)")
+K_GRID = (1.0, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001)
+BEST_K = {"mystery": 0.001, "horror": 0.005, "scifi": 0.001}   # trigram, from scripts/evaluate.py
+
+
+def tune_k(model: NgramModel, val: list[list[str]], grid=K_GRID) -> tuple[float, dict[float, float]]:
+    """Pick the k with the lowest validation perplexity; sets model.k and returns (best_k, {k: ppl})."""
+    scores = {k: model.perplexity(val, k) for k in grid}
+    model.k = min(scores, key=scores.get)
+    return model.k, scores
 
 
 # --- Milestone 4: Develop a function to generate text by sampling from the model.
