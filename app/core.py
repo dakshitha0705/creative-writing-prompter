@@ -1,9 +1,91 @@
-"""Your code. One stub per milestone; build them in order and keep each one small."""
+"""Your code. One stub per milestone; build them in order and keep each one small.
+
+Builds on the day-2 drill (app/ngram_lm.py): its `to_sentences`, `to_tokens` and `build` do the
+sentence splitting, tokenizing and n-gram counting; this file adds corpus prep, MLE, add-k + backoff,
+temperature sampling and the pieces the CLI needs.
+"""
+import os
+import random
+import re
+import unicodedata
+from pathlib import Path
+
+from app.ngram_lm import build, to_sentences, to_tokens
+
+GENRES = ("mystery", "horror", "scifi")
+
+
+def data_dir() -> Path:
+    """Where prepared corpora live (override with CWP_DATA_DIR)."""
+    return Path(os.environ.get("CWP_DATA_DIR", "data"))
+
 
 # --- Milestone 1: Prepare a text corpus of short stories.
 # Hint: Use text preprocessing and tokenization techniques.
-def milestone_1():  # TODO(milestone 1)
-    raise NotImplementedError("TODO(milestone 1)")
+_START = re.compile(r"\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG[^\n]*", re.I)
+_END = re.compile(r"(\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG|End of (?:the )?Project Gutenberg)", re.I)
+_ASCII = {"‘": "'", "’": "'", "“": '"', "”": '"', "—": " - ", "–": "-",
+          "…": "...", "_": ""}
+_ABBREV = re.compile(r"\b(Mr|Mrs|Dr|St|Messrs|Mme|Mlle|Capt|Col|Prof|Rev|Lt|Sgt)\.")
+
+
+def strip_gutenberg(text: str) -> str:
+    """Keep only the book body between the Project Gutenberg START and END markers."""
+    if m := _START.search(text):
+        text = text[m.end():]
+    if m := _END.search(text):
+        text = text[:m.start()]
+    return text
+
+
+def skip_front_matter(text: str, min_words: int = 40) -> str:
+    """Drop title page / contents: start at the first paragraph with at least `min_words` words."""
+    paras = re.split(r"\n\s*\n", text)
+    for i, p in enumerate(paras):
+        if len(p.split()) >= min_words:
+            return "\n\n".join(paras[i:])
+    return text
+
+
+def to_ascii(text: str) -> str:
+    for src, dst in _ASCII.items():
+        text = text.replace(src, dst)
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+
+
+def clean_text(raw: str) -> str:
+    """Gutenberg book -> plain ASCII story text (no header/footer, front matter, headings, illustrations)."""
+    text = to_ascii(skip_front_matter(strip_gutenberg(raw)))
+    text = re.sub(r"\[[^\]]*\]", " ", text)                      # [Illustration: ...], [Footnote ...]
+    text = re.sub(r"^[^a-z\n]*$", "", text, flags=re.M)          # ALL-CAPS headings, roman numerals
+    return _ABBREV.sub(r"\1", text)                              # "Mr. Holmes" is not a sentence end
+
+
+def tokenize_corpus(text: str) -> list[list[str]]:
+    """Clean text -> list of sentences, each a list of lowercase word tokens (drill tokenizer)."""
+    sents = []
+    for s in to_sentences(text):
+        toks = [t.strip("'") for t in to_tokens(s)]
+        if toks := [t for t in toks if t]:
+            sents.append(toks)
+    return sents
+
+
+def train_val_split(sents: list, val_frac: float = 0.1, seed: int = 0) -> tuple[list, list]:
+    """Shuffle sentences reproducibly and hold out `val_frac` of them (at least one) for validation."""
+    idx = list(range(len(sents)))
+    random.Random(seed).shuffle(idx)
+    n_val = max(1, round(len(sents) * val_frac)) if len(sents) > 1 else 0
+    return [sents[i] for i in idx[n_val:]], [sents[i] for i in idx[:n_val]]
+
+
+def write_sentences(path: Path, sents: list[list[str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(" ".join(s) for s in sents) + "\n", encoding="ascii")
+
+
+def read_sentences(path: Path) -> list[list[str]]:
+    return [line.split() for line in path.read_text(encoding="ascii").splitlines() if line.strip()]
 
 
 # --- Milestone 2: Implement n-gram counting and maximum-likelihood probabilities.

@@ -14,7 +14,7 @@ This Creative Writing Prompter is a CLI tool designed for aspiring writers. It l
 
 Tick these off as you go, and commit after each one.
 
-- [ ] **1. Prepare a text corpus of short stories.**  
+- [x] **1. Prepare a text corpus of short stories.**  
       Hint: Use text preprocessing and tokenization techniques.
 - [ ] **2. Implement n-gram counting and maximum-likelihood probabilities.**  
       Hint: Apply n-gram frequency counting and maximum-likelihood probability calculation.
