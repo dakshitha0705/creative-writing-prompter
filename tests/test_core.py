@@ -30,7 +30,6 @@ def test_milestone_1():
 
 
 # Milestone 2: Implement n-gram counting and maximum-likelihood probabilities.
-@pytest.mark.skip(reason="remove this line when you start milestone 2")
 def test_milestone_2():
     from app.ngram_lm import NgramLM
     m = core.NgramModel(TINY)

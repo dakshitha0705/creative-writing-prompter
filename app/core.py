@@ -90,8 +90,39 @@ def read_sentences(path: Path) -> list[list[str]]:
 
 # --- Milestone 2: Implement n-gram counting and maximum-likelihood probabilities.
 # Hint: Apply n-gram frequency counting and maximum-likelihood probability calculation.
-def milestone_2():  # TODO(milestone 2)
-    raise NotImplementedError("TODO(milestone 2)")
+BOS, EOS, UNK = "<s>", "</s>", "<unk>"
+
+
+def context_of(tokens: list[str], order: int) -> tuple:
+    """The (order-1)-word history for the next word, padded with <s> at the sentence start."""
+    return tuple(([BOS] * (order - 1) + list(tokens))[len(tokens):]) if order > 1 else ()
+
+
+class NgramModel:
+    """Unigram..trigram counts over tokenized sentences; `mle` and `top_next` give MLE estimates."""
+
+    def __init__(self, sents: list[list[str]], order: int = 3, k: float = 0.0):
+        self.order, self.k = order, k
+        lines = [" ".join(s) for s in sents]
+        # drill's build(): context (n-1 words, <s>-padded) -> Counter of next words, with </s> at the end
+        self.counts = {n: build(lines, n) for n in range(1, order + 1)}
+        self.totals = {n: {ctx: sum(c.values()) for ctx, c in self.counts[n].items()} for n in self.counts}
+        self.vocab = set(self.counts[1][()]) | {UNK}      # training words + </s> + <unk>
+
+    def mle(self, word: str, context: tuple) -> float:
+        """P_MLE(word | context) = count(context, word) / count(context); 0 if either is unseen."""
+        n = len(context) + 1
+        total = self.totals[n].get(tuple(context), 0)
+        return self.counts[n][tuple(context)][word] / total if total else 0.0
+
+    def top_next(self, text: str, n: int = 5, order: int | None = None) -> list[tuple[str, float]]:
+        """MLE top-n next words after `text` using one fixed order (no backoff); [] if context unseen."""
+        order = order or self.order
+        ctx = context_of(to_tokens(text), order)
+        c = self.counts[order].get(ctx)
+        if not c:
+            return []
+        return [(w, cnt / self.totals[order][ctx]) for w, cnt in c.most_common() if w != EOS][:n]
 
 
 # --- Milestone 3: Add add-k smoothing to handle unseen n-grams.
