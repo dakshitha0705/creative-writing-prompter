@@ -60,7 +60,6 @@ def test_milestone_3():
 
 
 # Milestone 4: Develop a function to generate text by sampling from the model.
-@pytest.mark.skip(reason="remove this line when you start milestone 4")
 def test_milestone_4():
     m = core.NgramModel(TINY, k=0.1)
     assert m.generate("the detective", words=12, seed=7) == m.generate("the detective", words=12, seed=7)

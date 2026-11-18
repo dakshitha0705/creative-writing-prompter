@@ -20,7 +20,7 @@ Tick these off as you go, and commit after each one.
       Hint: Apply n-gram frequency counting and maximum-likelihood probability calculation.
 - [x] **3. Add add-k smoothing to handle unseen n-grams.**  
       Hint: Implement add-k smoothing for robust probability estimates.
-- [ ] **4. Develop a function to generate text by sampling from the model.**  
+- [x] **4. Develop a function to generate text by sampling from the model.**  
       Hint: Develop a function for random sampling based on n-gram probabilities to generate text.
 - [ ] **5. Create a CLI interface for users to input text and get suggestions.**  
       Hint: Design a command-line interface to handle user input and display suggestions.

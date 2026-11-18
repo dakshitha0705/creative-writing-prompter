@@ -180,6 +180,10 @@ class NgramModel:
             ctx = self.backoff_context(ctx[1:])
         return list(out.items())
 
+    # -- Milestone 4 method; see generate() below.
+    def generate(self, prompt: str = "", words: int = 20, temperature: float = 1.0, seed: int | None = None) -> str:
+        return generate(self, prompt, words, temperature, seed)
+
 
 # --- Milestone 3: Add add-k smoothing to handle unseen n-grams.
 # Hint: Implement add-k smoothing for robust probability estimates.
@@ -196,8 +200,35 @@ def tune_k(model: NgramModel, val: list[list[str]], grid=K_GRID) -> tuple[float,
 
 # --- Milestone 4: Develop a function to generate text by sampling from the model.
 # Hint: Develop a function for random sampling based on n-gram probabilities to generate text.
-def milestone_4():  # TODO(milestone 4)
-    raise NotImplementedError("TODO(milestone 4)")
+def sample_next(model: NgramModel, tokens: list[str], rng: random.Random, temperature: float = 1.0) -> str:
+    """Draw the next word from the longest seen context's counts, reweighted as count**(1/T).
+    T<=0 is greedy; T<1 sharper (safer), T>1 flatter (more surprising). May return </s>."""
+    ctx = model.backoff_context(context_of(tokens, model.order))
+    c = model.counts[len(ctx) + 1][ctx]
+    if temperature <= 0:
+        return c.most_common(1)[0][0]
+    words = list(c)
+    logw = [math.log(c[w]) / temperature for w in words]
+    top = max(logw)
+    return rng.choices(words, weights=[math.exp(x - top) for x in logw])[0]
+
+
+def generate(model: NgramModel, prompt: str = "", words: int = 20, temperature: float = 1.0,
+             seed: int | None = None) -> str:
+    """Continue `prompt` with exactly `words` sampled words; a sampled </s> ends the sentence with '.'
+    and the model starts a new sentence (context resets to <s> <s>)."""
+    rng = random.Random(seed)
+    history, out = to_tokens(prompt), []
+    while sum(w != "." for w in out) < words:
+        w = sample_next(model, history, rng, temperature)
+        if w == EOS:
+            if out and out[-1] != ".":
+                out.append(".")
+            history = []
+        else:
+            out.append(w)
+            history.append(w)
+    return " ".join(out).replace(" .", ".")
 
 
 # --- Milestone 5: Create a CLI interface for users to input text and get suggestions.
