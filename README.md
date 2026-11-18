@@ -1,3 +1,4 @@
+[![Built with askThili](https://ask.thili.ai/api/v1/public/projects/3mtnrdjj4e/badge.svg)](https://ask.thili.ai/b/3mtnrdjj4e)
 # Creative Writing Prompter
 
 [![Built with askThili](https://ask.thili.ai/api/v1/public/projects/3mtnrdjj4e/badge.svg)](https://ask.thili.ai/b/3mtnrdjj4e)
