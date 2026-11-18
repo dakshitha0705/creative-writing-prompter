@@ -70,7 +70,6 @@ def test_milestone_4():
 
 
 # Milestone 5: Create a CLI interface for users to input text and get suggestions.
-@pytest.mark.skip(reason="remove this line when you start milestone 5")
 def test_milestone_5(tmp_path, monkeypatch, capsys):
     from app.cli import main
     monkeypatch.setenv("CWP_DATA_DIR", str(tmp_path))

@@ -233,5 +233,30 @@ def generate(model: NgramModel, prompt: str = "", words: int = 20, temperature: 
 
 # --- Milestone 5: Create a CLI interface for users to input text and get suggestions.
 # Hint: Design a command-line interface to handle user input and display suggestions.
-def milestone_5():  # TODO(milestone 5)
-    raise NotImplementedError("TODO(milestone 5)")
+class PrompterError(Exception):
+    """A problem the user can fix (bad input, unknown genre, missing data); shown without a traceback."""
+
+
+def available_genres(root: Path | None = None) -> list[str]:
+    root = Path(root) if root else data_dir()
+    found = {p.parent.name for p in root.glob("*/train.txt")} if root.exists() else set()
+    return sorted(set(GENRES) | found)
+
+
+def check_prompt(text: str) -> str:
+    if not to_tokens(text or ""):
+        raise PrompterError('Input is empty: type at least one word, e.g. "The detective opened the".')
+    return text.strip()
+
+
+def load_model(genre: str, root: Path | None = None) -> NgramModel:
+    """Train the genre's trigram model from data/<genre>/train.txt with its tuned k."""
+    root = Path(root) if root else data_dir()
+    genre = genre.strip().lower()
+    if genre not in available_genres(root):
+        raise PrompterError(f"Unknown genre '{genre}'. Choose from: {', '.join(available_genres(root))}.")
+    path = root / genre / "train.txt"
+    if not path.exists():
+        raise PrompterError(f"No corpus for '{genre}' ({path} is missing). Build it first: "
+                            "python scripts/prepare_data.py")
+    return NgramModel(read_sentences(path), k=BEST_K.get(genre, 0.01))
